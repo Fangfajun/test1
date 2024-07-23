@@ -24,14 +24,35 @@
                         const processor = new MediaStreamTrackProcessor({track});
                         const reader = processor.readable.getReader();
 
+                        const canvas = document.createElement('canvas');
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+
+                        const ctx = canvas.getContext('2d');
+
                         // 读取视频帧并发送到服务端
-                        const writer = ws.binaryType = 'arraybuffer';
                         const sendFrame = () => {
                             reader.read().then(({done, value}) => {
                                 if (done) {
                                     return;
                                 }
-                                writer.send(value);
+
+                                // 绘制视频帧到canvas
+                                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                                // 将canvas的内容编码为JPEG并发送
+                                const dataUrl = canvas.toDataURL('image/jpeg');
+                                const byteString = atob(dataUrl.split(',')[1]);
+                                const arrayBuffer = new ArrayBuffer(byteString.length);
+                                const uint8Array = new Uint8Array(arrayBuffer);
+
+                                for (let i = 0; i < byteString.length; i++) {
+                                    uint8Array[i] = byteString.charCodeAt(i);
+                                }
+
+                                ws.send(arrayBuffer);
+
+                                // 继续读取下一帧
                                 sendFrame();
                             });
                         };
